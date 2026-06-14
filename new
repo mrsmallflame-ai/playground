@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Scaffold a new experiment from the template.
+# Usage: ./new <experiment-name>
+set -euo pipefail
+
+if [ $# -ne 1 ]; then
+  echo "Usage: ./new <experiment-name>" >&2
+  exit 1
+fi
+
+name="$1"
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+dest="$root/experiments/$name"
+
+if [ -e "$dest" ]; then
+  echo "error: experiments/$name already exists" >&2
+  exit 1
+fi
+
+cp -r "$root/experiments/_template" "$dest"
+
+# Seed the README title with the project name.
+sed -i.bak "s/^# <project name>/# $name/" "$dest/README.md" && rm -f "$dest/README.md.bak"
+
+echo "Created experiments/$name"
+echo "Next: cd experiments/$name && edit README.md, then add a row to the top-level index."
