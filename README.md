@@ -9,7 +9,7 @@ all coexist happily.
 
 | Project | What it is | Status |
 |---------|------------|--------|
-| _(none yet — go build something!)_ | | |
+| [desktop-manager](experiments/desktop-manager/) | Zero-dependency CLI that declutters a folder by sorting files into category subfolders, with dry-run + undo | ✅ Working |
 
 ## Starting a new experiment
 
