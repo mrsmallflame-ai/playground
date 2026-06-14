@@ -9,7 +9,7 @@ all coexist happily.
 
 | Project | What it is | Status |
 |---------|------------|--------|
-| _(none yet — go build something!)_ | | |
+| [functional-vm](experiments/functional-vm/) | A small stack-based virtual machine with an assembler, CLI, examples, and tests. | Working |
 
 ## Starting a new experiment
 
@@ -24,6 +24,16 @@ Prefer to do it by hand? Just copy the template:
 
 ```bash
 cp -r experiments/_template experiments/my-cool-idea
+```
+
+## Codex workflow
+
+This repo is set up for Codex sessions through [`AGENTS.md`](AGENTS.md). When
+Codex creates or changes experiments, it should keep work inside
+`experiments/<name>/`, update the project index above, and run:
+
+```bash
+./scripts/check
 ```
 
 ## Conventions

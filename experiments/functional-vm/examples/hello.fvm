@@ -1,0 +1,4 @@
+# Print a string literal.
+PUSH "hello from the VM"
+PRINTLN
+HALT

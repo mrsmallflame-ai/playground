@@ -1,0 +1,10 @@
+# Demonstrate CALL and RET with a stack-based square function.
+PUSH 7
+CALL square
+PRINTLN
+HALT
+
+square:
+  DUP
+  MUL
+  RET

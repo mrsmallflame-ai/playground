@@ -1,0 +1,58 @@
+#!/usr/bin/env bash
+# Validate the lightweight playground structure.
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$root"
+
+failures=0
+
+fail() {
+  printf 'error: %s\n' "$1" >&2
+  failures=$((failures + 1))
+}
+
+require_file() {
+  if [ ! -f "$1" ]; then
+    fail "missing required file: $1"
+  fi
+}
+
+require_file "README.md"
+require_file "AGENTS.md"
+require_file "new"
+require_file "experiments/_template/README.md"
+
+if [ -f "new" ] && [ ! -x "new" ]; then
+  fail "new must be executable"
+fi
+
+if [ -f "new" ]; then
+  bash -n "new" || fail "new has a shell syntax error"
+fi
+
+if [ -f "scripts/check" ]; then
+  bash -n "scripts/check" || fail "scripts/check has a shell syntax error"
+fi
+
+while IFS= read -r -d '' dir; do
+  name="${dir#experiments/}"
+
+  if [ "$name" = "_template" ]; then
+    continue
+  fi
+
+  if [ ! -f "$dir/README.md" ]; then
+    fail "$dir is missing README.md"
+  fi
+
+  if ! grep -Eq "^\|[[:space:]]*\[$name\]\(experiments/$name/?\)" "README.md"; then
+    fail "README.md project index is missing experiments/$name"
+  fi
+done < <(find experiments -mindepth 1 -maxdepth 1 -type d -print0)
+
+if [ "$failures" -ne 0 ]; then
+  exit 1
+fi
+
+printf 'playground checks passed\n'

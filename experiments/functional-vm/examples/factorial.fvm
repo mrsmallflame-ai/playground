@@ -1,0 +1,29 @@
+# Calculate 5! using variables and a loop.
+PUSH 5
+STORE n
+
+PUSH 1
+STORE acc
+
+loop:
+  LOAD n
+  PUSH 1
+  LE
+  JNZ done
+
+  LOAD acc
+  LOAD n
+  MUL
+  STORE acc
+
+  LOAD n
+  PUSH 1
+  SUB
+  STORE n
+
+  JMP loop
+
+done:
+  LOAD acc
+  PRINTLN
+  HALT
