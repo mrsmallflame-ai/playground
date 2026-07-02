@@ -1,0 +1,8 @@
+# Use opencv-python (not -headless) on a desktop if you also want cv2 windows;
+# the app itself only needs codecs + image ops, so headless works everywhere.
+opencv-python-headless>=4.9
+numpy>=1.26
+matplotlib>=3.8
+
+# Dev
+pytest>=8.0

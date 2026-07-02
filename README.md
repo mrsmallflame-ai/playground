@@ -10,6 +10,7 @@ all coexist happily.
 | Project | What it is | Status |
 |---------|------------|--------|
 | [functional-vm](experiments/functional-vm/) | A small stack-based virtual machine with an assembler, CLI, examples, and tests. | Working |
+| [frisbee-throw-analytics](experiments/frisbee-throw-analytics/) | Desktop computer-vision app that analyses ultimate frisbee throws from video: disc tracking, kinematics metrics, charts, Tkinter GUI. | Working |
 
 ## Starting a new experiment
 
