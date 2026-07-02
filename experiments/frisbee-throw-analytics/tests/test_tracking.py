@@ -1,6 +1,10 @@
-"""End-to-end tests: synthetic video → tracker → metrics."""
+"""End-to-end tests: synthetic video → tracker → metrics.
 
-import math
+Covers the adversarial cases the tracker must survive: white disc on a
+white/sky background (appearance cue useless), tilted camera angles where
+the disc projects as an ellipse, and throws in either direction.
+"""
+
 import sys
 from pathlib import Path
 
@@ -14,11 +18,18 @@ from frisbee_analytics.vision import track_video
 from frisbee_analytics.vision.tracker import DISC_DIAMETER_M
 
 
+def make_video(tmp_path_factory, name: str, **kwargs) -> Path:
+    path = tmp_path_factory.mktemp("videos") / f"{name}.mp4"
+    kwargs.setdefault("angle_deg", 20.0)
+    kwargs.setdefault("speed_px_s", 320.0)
+    kwargs.setdefault("n_frames", 50)
+    generate(str(path), **kwargs)
+    return path
+
+
 @pytest.fixture(scope="module")
 def sample_video(tmp_path_factory):
-    path = tmp_path_factory.mktemp("videos") / "throw.mp4"
-    generate(str(path), angle_deg=20.0, speed_px_s=320.0, n_frames=50)
-    return path
+    return make_video(tmp_path_factory, "grass")
 
 
 def test_tracker_follows_disc(sample_video):
@@ -42,6 +53,69 @@ def test_end_to_end_metrics(sample_video):
     assert metrics.release_speed_px_s == pytest.approx(320.0, rel=0.15)
     assert metrics.flight_duration_s > 0.5
     assert 0.9 <= metrics.straightness <= 1.0
+
+
+def test_white_disc_on_white_background(tmp_path_factory):
+    """Appearance segmentation alone cannot separate disc from background
+    here — the motion cue has to carry the detection."""
+    video = make_video(tmp_path_factory, "white", background="white")
+    track = track_video(video)
+    assert len(track) >= 25
+    metrics = analyse_track(track)
+    assert metrics.release_angle_deg == pytest.approx(20.0, abs=6.0)
+    assert metrics.release_speed_px_s == pytest.approx(320.0, rel=0.2)
+
+
+def test_white_disc_on_sky_background(tmp_path_factory):
+    video = make_video(tmp_path_factory, "sky", background="sky")
+    track = track_video(video)
+    assert len(track) >= 25
+    assert analyse_track(track).release_angle_deg == pytest.approx(20.0, abs=6.0)
+
+
+def test_tilted_camera_elliptical_disc(tmp_path_factory):
+    """From a low/side camera angle the disc projects as a thin ellipse;
+    the shape filter must not reject it."""
+    video = make_video(tmp_path_factory, "tilted", aspect=0.4)
+    track = track_video(video)
+    assert len(track) >= 25
+    metrics = analyse_track(track)
+    assert metrics.release_angle_deg == pytest.approx(20.0, abs=6.0)
+    # Major axis equals the true diameter regardless of tilt, so the
+    # pixel scale must stay calibrated even edge-on.
+    assert track.metres_per_px == pytest.approx(DISC_DIAMETER_M / 20.0, rel=0.3)
+
+
+def test_tilted_disc_on_white_background(tmp_path_factory):
+    """Both failure modes at once: camouflaged and elliptical."""
+    video = make_video(tmp_path_factory, "tilted-white", background="white", aspect=0.5)
+    track = track_video(video)
+    assert len(track) >= 20
+    assert analyse_track(track).release_angle_deg == pytest.approx(20.0, abs=8.0)
+
+
+def test_near_edge_on_disc_on_white_background(tmp_path_factory):
+    """Hardest case: a ~2 px sliver at ~20 grey-levels of contrast. Its
+    motion signature is a handful of pixels per frame (the disc mostly
+    self-overlaps as it travels along its own major axis)."""
+    video = make_video(tmp_path_factory, "edge-white", background="white", aspect=0.25)
+    track = track_video(video)
+    assert len(track) >= 20
+    metrics = analyse_track(track)
+    assert metrics.release_angle_deg == pytest.approx(20.0, abs=8.0)
+    assert metrics.release_speed_px_s == pytest.approx(320.0, rel=0.2)
+
+
+def test_leftward_throw(tmp_path_factory):
+    """Throws filmed from the opposite side move right-to-left."""
+    video = make_video(tmp_path_factory, "leftward", leftward=True)
+    track = track_video(video)
+    assert len(track) >= 25
+    xs = [p.x for p in track.points]
+    assert xs[0] > xs[-1], "disc should move leftward"
+    metrics = analyse_track(track)
+    assert metrics.release_angle_deg == pytest.approx(20.0, abs=6.0)
+    assert metrics.horizontal_displacement_px > 0
 
 
 def test_track_roundtrip_serialisation(sample_video):

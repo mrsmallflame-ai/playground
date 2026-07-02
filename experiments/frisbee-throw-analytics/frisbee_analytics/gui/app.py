@@ -12,7 +12,7 @@ import threading
 import tkinter as tk
 from datetime import datetime, timezone
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog, ttk
+from tkinter import filedialog, simpledialog, ttk
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 

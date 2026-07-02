@@ -9,13 +9,14 @@ from __future__ import annotations
 
 import math
 import statistics
-from dataclasses import dataclass, field
+from dataclasses import dataclass
+
+import numpy as np
 
 from ..models import FlightTrack, ThrowMetrics
 
-# Velocity samples used to estimate release angle/speed. Kept small: the
-# further into flight we average, the more gravity biases the angle down.
-RELEASE_WINDOW = 3
+# Points used to fit the release velocity at the start of flight.
+RELEASE_WINDOW = 10
 
 
 def _velocities(track: FlightTrack) -> list[tuple[float, float, float]]:
@@ -33,6 +34,41 @@ def _velocities(track: FlightTrack) -> list[tuple[float, float, float]]:
         vy_up = -(pts[hi].y - pts[lo].y) / dt  # flip image axis: up positive
         out.append((vx, vy_up, math.hypot(vx, vy_up)))
     return out
+
+
+def _theil_sen_slope(ts: list[float], vs: list[float]) -> float:
+    """Median of pairwise slopes — robust to isolated bad points."""
+    slopes = [
+        (vs[j] - vs[i]) / (ts[j] - ts[i])
+        for i in range(len(ts))
+        for j in range(i + 1, len(ts))
+        if ts[j] > ts[i]
+    ]
+    return statistics.median(slopes) if slopes else 0.0
+
+
+def _release_velocity(track: FlightTrack) -> tuple[float, float]:
+    """Velocity (vx, vy_up) at the moment of release.
+
+    Tracker output near acquisition can contain an outlier or two, and a
+    single bad point wrecks any short-window average. Horizontal velocity
+    is therefore fit with Theil–Sen (a median is unmoved by one outlier);
+    vertical velocity is the ``t = 0`` derivative of a quadratic
+    least-squares fit, which accounts for gravity's bend across the window
+    instead of averaging it in as bias.
+    """
+    pts = track.points[: min(RELEASE_WINDOW, len(track.points))]
+    t0 = pts[0].time_s
+    ts = [p.time_s - t0 for p in pts]
+    xs = [p.x for p in pts]
+    ys_up = [-p.y for p in pts]
+
+    vx = _theil_sen_slope(ts, xs)
+    if len(pts) >= 4:
+        vy = float(np.polyfit(ts, ys_up, 2)[1])
+    else:
+        vy = _theil_sen_slope(ts, ys_up)
+    return vx, vy
 
 
 def analyse_track(track: FlightTrack) -> ThrowMetrics:
@@ -54,10 +90,7 @@ def analyse_track(track: FlightTrack) -> ThrowMetrics:
     net_displacement = math.hypot(dx, dy_up)
     straightness = net_displacement / path_length if path_length > 0 else 0.0
 
-    # Release: average velocity over the first few tracked frames.
-    window = vels[:RELEASE_WINDOW]
-    rvx = statistics.fmean(v[0] for v in window)
-    rvy = statistics.fmean(v[1] for v in window)
+    rvx, rvy = _release_velocity(track)
     release_speed = math.hypot(rvx, rvy)
     release_angle = math.degrees(math.atan2(rvy, abs(rvx))) if release_speed > 0 else 0.0
 

@@ -61,17 +61,17 @@ class VideoSource:
 def preprocess_frame(image: np.ndarray, blur_kernel: int = 5) -> np.ndarray:
     """Return an HSV frame ready for colour-based segmentation.
 
-    Steps: Gaussian blur to suppress sensor noise, BGR→HSV conversion, and
-    histogram equalisation of the value channel so exposure differences
-    between clips (and within a clip, e.g. passing clouds) matter less.
+    Gaussian blur suppresses sensor noise, then BGR→HSV conversion.
+    Deliberately *no* histogram equalisation: fixed HSV thresholds need
+    absolute values, and equalising a near-uniform frame (white wall, sky)
+    stretches noise across the whole range, filling the threshold band
+    with false positives. Lighting robustness comes from the tracker's
+    motion cue instead.
     """
     if blur_kernel % 2 == 0:
         blur_kernel += 1
     blurred = cv2.GaussianBlur(image, (blur_kernel, blur_kernel), 0)
-    hsv = cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
-    h, s, v = cv2.split(hsv)
-    v = cv2.equalizeHist(v)
-    return cv2.merge((h, s, v))
+    return cv2.cvtColor(blurred, cv2.COLOR_BGR2HSV)
 
 
 def threshold_disc(hsv: np.ndarray, lower: tuple[int, int, int], upper: tuple[int, int, int]) -> np.ndarray:
