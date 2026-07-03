@@ -22,6 +22,12 @@ def main(argv: list[str] | None = None) -> int:
 
     p_analyze = sub.add_parser("analyze", help="analyse one video, print metrics as JSON")
     p_analyze.add_argument("video")
+    p_analyze.add_argument(
+        "--view",
+        choices=["auto", "side", "overhead"],
+        default="auto",
+        help="camera geometry; 'auto' classifies it from the flight path",
+    )
 
     p_overlay = sub.add_parser("overlay", help="render flight-path overlay video")
     p_overlay.add_argument("video")
@@ -37,7 +43,7 @@ def main(argv: list[str] | None = None) -> int:
         if len(track) < 3:
             print("error: could not track the disc in this video", file=sys.stderr)
             return 1
-        metrics = analyse_track(track)
+        metrics = analyse_track(track, view=args.view)
         print(json.dumps({"tracked_frames": len(track), **metrics.to_dict()}, indent=2))
         return 0
 

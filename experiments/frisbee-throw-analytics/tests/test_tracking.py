@@ -118,6 +118,45 @@ def test_leftward_throw(tmp_path_factory):
     assert metrics.horizontal_displacement_px > 0
 
 
+def test_rolled_camera_video(tmp_path_factory):
+    """Footage from a tilted phone: release angle must be measured against
+    the true horizon, recovered from the direction of apparent gravity."""
+    video = make_video(tmp_path_factory, "rolled", roll_deg=25.0)
+    track = track_video(video)
+    assert len(track) >= 25
+    metrics = analyse_track(track)
+    assert metrics.view == "side"
+    assert abs(metrics.camera_roll_deg) == pytest.approx(25.0, abs=5.0)
+    assert metrics.release_angle_deg == pytest.approx(20.0, abs=6.0)
+
+
+def test_top_down_video(tmp_path_factory):
+    """Camera looking straight down: gravity is invisible, so the analysis
+    must switch to ground-plane metrics instead of inventing an angle."""
+    video = make_video(tmp_path_factory, "topdown", view="topdown")
+    track = track_video(video)
+    assert len(track) >= 25
+    metrics = analyse_track(track)
+    assert metrics.view == "overhead"
+    assert metrics.release_angle_deg == 0.0
+    assert metrics.release_speed_px_s == pytest.approx(320.0, rel=0.15)
+    assert metrics.lateral_deviation_px == pytest.approx(12.0, abs=6.0)
+    assert metrics.straightness > 0.95
+
+
+def test_top_down_on_white_background_with_override(tmp_path_factory):
+    """On low-contrast footage the disc-size trend that auto-detection
+    relies on is unreadable, so the user states the geometry explicitly.
+    The ground-plane metrics must still come out right."""
+    video = make_video(tmp_path_factory, "topdown-white", view="topdown", background="white")
+    track = track_video(video)
+    assert len(track) >= 25
+    metrics = analyse_track(track, view="overhead")
+    assert metrics.view == "overhead"
+    assert metrics.release_angle_deg == 0.0
+    assert metrics.release_speed_px_s == pytest.approx(320.0, rel=0.2)
+
+
 def test_track_roundtrip_serialisation(sample_video):
     from frisbee_analytics.models import FlightTrack
 

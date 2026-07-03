@@ -75,8 +75,22 @@ class FlightTrack:
 
 @dataclass
 class ThrowMetrics:
-    """Performance metrics derived from a single tracked throw."""
+    """Performance metrics derived from a single tracked throw.
 
+    ``view`` records which camera geometry the analysis assumed: "side"
+    (gravity visible in the image plane; release angle is elevation above
+    the true horizon after camera-roll correction) or "overhead" (camera
+    looks down; metrics describe ground-plane motion and release angle is
+    not defined, reported as 0).
+    """
+
+    view: str = "side"
+    # Apparent camera roll, estimated from the direction of gravity in the
+    # image. 0 for overhead views.
+    camera_roll_deg: float = 0.0
+    # Peak perpendicular deviation of the flight path from the straight
+    # release→end chord: arc height in side view, flight curve overhead.
+    lateral_deviation_px: float = 0.0
     release_angle_deg: float = 0.0
     horizontal_displacement_px: float = 0.0
     vertical_displacement_px: float = 0.0

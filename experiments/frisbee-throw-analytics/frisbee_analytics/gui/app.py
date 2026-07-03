@@ -147,9 +147,16 @@ class App(tk.Tk):
         lines = []
         for record in records:
             m = record.metrics
+            angle_line = (
+                f"   release angle      {m.release_angle_deg:7.1f} °"
+                if m.view == "side"
+                else "   release angle          n/a (overhead view)"
+            )
             lines += [
                 f"── {record.name} ({record.recorded_at[:19]})",
-                f"   release angle      {m.release_angle_deg:7.1f} °",
+                f"   camera view        {m.view:>7}"
+                + (f"  (roll {m.camera_roll_deg:+.1f}°)" if m.camera_roll_deg else ""),
+                angle_line,
                 f"   release speed      {m.release_speed_px_s:7.1f} px/s"
                 + (f"  (~{m.release_speed_m_s:.1f} m/s)" if m.release_speed_m_s else ""),
                 f"   peak speed         {m.peak_speed_px_s:7.1f} px/s",
@@ -157,6 +164,8 @@ class App(tk.Tk):
                 f"   horiz displacement {m.horizontal_displacement_px:7.1f} px",
                 f"   vert displacement  {m.vertical_displacement_px:7.1f} px",
                 f"   straightness       {m.straightness:7.2f}",
+                f"   lateral deviation  {m.lateral_deviation_px:7.1f} px"
+                + ("  (flight curve)" if m.view == "overhead" else "  (arc height)"),
                 "",
             ]
         if len(records) > 1:

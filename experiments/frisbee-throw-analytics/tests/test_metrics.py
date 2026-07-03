@@ -99,3 +99,80 @@ def test_consistency_empty():
 def test_metrics_roundtrip():
     m = analyse_track(projectile_track())
     assert ThrowMetrics.from_dict(m.to_dict()) == m
+
+
+# ── camera-angle handling ──────────────────────────────────────────────────
+
+
+def rotate_track(track: FlightTrack, deg: float, cx: float = 320.0, cy: float = 180.0) -> FlightTrack:
+    """Simulate a rolled camera: rotate all points about the frame centre."""
+    c, s = math.cos(math.radians(deg)), math.sin(math.radians(deg))
+    rotated = FlightTrack(fps=track.fps, frame_width=track.frame_width,
+                          frame_height=track.frame_height, metres_per_px=track.metres_per_px)
+    for p in track.points:
+        rotated.append(TrackPoint(
+            frame_index=p.frame_index,
+            time_s=p.time_s,
+            x=cx + (p.x - cx) * c - (p.y - cy) * s,
+            y=cy + (p.x - cx) * s + (p.y - cy) * c,
+            radius_px=p.radius_px,
+        ))
+    return rotated
+
+
+def overhead_track(speed: float = 300.0, curve: float = 12.0, fps: float = 30.0, n: int = 40) -> FlightTrack:
+    """Camera looking straight down: near-straight path with a lateral
+    curve, disc apparently growing then shrinking as it rises and falls."""
+    track = FlightTrack(fps=fps, frame_width=640, frame_height=360)
+    total = (n - 1) / fps
+    for i in range(n):
+        t = i / fps
+        p = t / total
+        bump = 4.0 * p * (1.0 - p)
+        track.append(TrackPoint(
+            frame_index=i, time_s=t,
+            x=speed * t,
+            y=200.0 + curve * bump,
+            radius_px=10.0 * (1.0 + 0.35 * bump),
+        ))
+    return track
+
+
+def test_rolled_camera_recovers_true_release_angle():
+    rolled = rotate_track(projectile_track(angle_deg=25.0), 30.0)
+    m = analyse_track(rolled)
+    assert m.view == "side"
+    assert abs(m.camera_roll_deg) == pytest.approx(30.0, abs=2.0)
+    assert m.release_angle_deg == pytest.approx(25.0, abs=2.0)
+
+
+def test_level_camera_reports_no_roll():
+    m = analyse_track(projectile_track(angle_deg=25.0))
+    assert m.view == "side"
+    assert m.camera_roll_deg == 0.0
+
+
+def test_overhead_view_detected_and_measured():
+    m = analyse_track(overhead_track())
+    assert m.view == "overhead"
+    assert m.release_angle_deg == 0.0
+    assert m.vertical_displacement_px == 0.0
+    assert m.release_speed_px_s == pytest.approx(300.0, rel=0.1)
+    assert m.lateral_deviation_px == pytest.approx(12.0, abs=2.0)
+    assert m.horizontal_displacement_px > 300.0
+
+
+def test_view_override_wins_over_auto():
+    assert analyse_track(overhead_track(), view="side").view == "side"
+    assert analyse_track(projectile_track(), view="overhead").view == "overhead"
+
+
+def test_invalid_view_rejected():
+    with pytest.raises(ValueError):
+        analyse_track(projectile_track(), view="sideways")
+
+
+def test_side_view_reports_arc_height():
+    m = analyse_track(projectile_track(angle_deg=25.0))
+    # A projectile arc bulges above its chord by g·T²/8.
+    assert m.lateral_deviation_px == pytest.approx(200.0 * 1.3**2 / 8.0, rel=0.1)
